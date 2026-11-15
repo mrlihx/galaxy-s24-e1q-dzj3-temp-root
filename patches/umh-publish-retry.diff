@@ -1,0 +1,79 @@
+--- /tmp/orig_native/timer-dzj3-apk.c	2026-11-15 17:10:26
++++ native/timer-dzj3-apk.c	2026-11-15 17:09:29
+@@ -3619,29 +3619,56 @@
+         n8 = entry;
+         {
+             unsigned long long old_prev = 0, chk = 0;
++            int attempt = 0;
+ 
+-            if (user_pipe_read(pf[0], mark, worklist + 8,
+-                               &old_prev, 8) != 8)
+-                park_forever("umh worklist prev read failed");
+-            if (old_prev != worklist)
+-                park_forever("umh worklist busy before publish");
+-            wn = user_pipe_write(pf[1], mark, worklist + 8, &n8, 8);
+-            if (user_pipe_read(pf[0], mark, worklist, &chk, 8) != 8 ||
+-                chk != worklist)
+-            {
+-                unsigned int rv32;
++            /*
++             * system_unbound_wq also carries short-lived background work
++             * (tty hangup, cgroup, ...), so sampling the list once and
++             * giving up on the first collision almost always loses.  Poll
++             * for a quiet window instead (~200 ms per attempt, 3 attempts)
++             * and only park once every attempt has been raced out.
++             */
++            for (attempt = 0; ; attempt++)
++            {
++                int spins = 0;
+ 
++                for (;;)
++                {
++                    if (user_pipe_read(pf[0], mark, worklist + 8,
++                                       &old_prev, 8) != 8)
++                        park_forever("umh worklist prev read failed");
++                    if (old_prev == worklist)
++                        break;
++                    if (++spins >= 1000)
++                        park_forever("umh worklist busy before publish");
++                    usleep(200);
++                }
++                logf("[+] umh publish attempt=%d waits=%d\n",
++                     attempt + 1, spins);
++
++                wn = user_pipe_write(pf[1], mark, worklist + 8, &n8, 8);
++                if (user_pipe_read(pf[0], mark, worklist, &chk, 8) == 8 &&
++                    chk == worklist)
++                    break; /* head still self-linked: next write publishes */
++
++                /* A real queue_work slipped in between sample and write:
++                 * restore prev and look for another quiet window. */
+                 user_pipe_write(pf[1], mark, worklist + 8, &old_prev, 8);
+-                rv32 = rb_inf;
+-                user_pipe_write(pf[1], mark, rb_inflight_addr, &rv32, 4);
+-                rv32 = rb_act;
+-                user_pipe_write(pf[1], mark, pwq + PWQ_NR_ACTIVE_OFF,
+-                                &rv32, 4);
+-                rv32 = rb_ref;
+-                user_pipe_write(pf[1], mark, pwq + PWQ_REFCNT_OFF,
+-                                &rv32, 4);
+-                park_forever("umh worklist busy before publish "
+-                             "(prev + counters rolled back)");
++                if (attempt >= 2)
++                {
++                    unsigned int rv32;
++
++                    rv32 = rb_inf;
++                    user_pipe_write(pf[1], mark, rb_inflight_addr, &rv32, 4);
++                    rv32 = rb_act;
++                    user_pipe_write(pf[1], mark, pwq + PWQ_NR_ACTIVE_OFF,
++                                    &rv32, 4);
++                    rv32 = rb_ref;
++                    user_pipe_write(pf[1], mark, pwq + PWQ_REFCNT_OFF,
++                                    &rv32, 4);
++                    park_forever("umh worklist busy before publish "
++                                 "(prev + counters rolled back)");
++                }
+             }
+         }
+         wn += user_pipe_write(pf[1], mark, worklist, &n8, 8);

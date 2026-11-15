@@ -1,0 +1,23 @@
+Galaxy S24U DZJ3 temporary root
+Copyright (C) 2026 Reallyliked21 and contributors
+
+This product includes the following third-party components:
+
+1. ksud-e3q-S9280ZCS6DZF2-kdp
+   Source: https://github.com/BuSung-dev/Root-My-Galaxy-Payloads
+   License: Apache License 2.0
+   Size: 4,879,856 bytes
+   SHA-256: 1b92611de62035263f129636270deb9002de42e1d2329460342856243975015b
+
+2. KernelSU
+   Source: https://github.com/tiann/KernelSU
+   License: GNU General Public License v3.0
+
+3. SamTimer (yoro1836, RiosWesley)
+   License: MIT
+
+4. Shizuku
+   Source: https://github.com/RikkaApps/Shizuku
+   License: Apache License 2.0
+
+See LICENSES/ for full license texts and THIRD_PARTY_NOTICES.md for details.

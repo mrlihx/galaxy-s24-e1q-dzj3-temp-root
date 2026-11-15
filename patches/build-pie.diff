@@ -1,0 +1,21 @@
+--- /tmp/orig_native/build.sh	2026-11-15 17:10:26
++++ native/build.sh	2026-11-15 17:09:29
+@@ -26,10 +26,15 @@
+   exit 1
+ fi
+ 
+-CFLAGS=(-O2 -fPIC -fno-stack-protector -Wno-unused-result -Wno-incompatible-pointer-types)
++# NOTE: these payloads are exec'd directly by the app (ProcessBuilder on the
++# file in nativeLibraryDir), so they must be built as PIE *executables*.
++# Linking with -shared yields a DSO with e_entry=0 and no PT_INTERP: exec'ing
++# it jumps to address 0 and dies with SIGSEGV before main() runs.
++CFLAGS=(-O2 -fPIE -fno-stack-protector -Wno-unused-result -Wno-incompatible-pointer-types)
++LDFLAGS=(-pie -s -Wl,--build-id=none)
+ 
+-"$CC" "${CFLAGS[@]}" -shared -s -Wl,--build-id=none -o libtimer_std.so timer-dzj3-apk.c
+-"$CC" "${CFLAGS[@]}" -shared -s -Wl,--build-id=none -o libtimer_lspd.so timer-dzj3-lsposed.c
++"$CC" "${CFLAGS[@]}" "${LDFLAGS[@]}" -o libtimer_std.so timer-dzj3-apk.c
++"$CC" "${CFLAGS[@]}" "${LDFLAGS[@]}" -o libtimer_lspd.so timer-dzj3-lsposed.c
+ 
+ echo "built:"
+ ls -l libtimer_std.so libtimer_lspd.so
